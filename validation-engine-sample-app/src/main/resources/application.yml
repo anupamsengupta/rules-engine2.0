@@ -1,0 +1,45 @@
+spring:
+  application:
+    name: validation-engine-sample-app
+  
+  datasource:
+    url: jdbc:h2:mem:sample db
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2000ms
+
+# Validation Engine Configuration
+quickysoft:
+  validation:
+    cache:
+      enabled: true
+      ttl-hours: 24
+    script:
+      local-base-path: /scripts
+      s3:
+        enabled: false
+        # bucket: my-scripts-bucket
+        # region: us-east-1
+        # key-prefix: scripts/
+
+server:
+  port: 8081
+
+logging:
+  level:
+    com.quickysoft.validation: INFO
+
