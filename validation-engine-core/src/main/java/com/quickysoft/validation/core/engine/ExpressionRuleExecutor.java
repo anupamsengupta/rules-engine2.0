@@ -7,7 +7,13 @@ import com.quickysoft.validation.core.model.RuleStatus;
 import com.quickysoft.validation.core.model.ValidationContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.expression.MapAccessor;
+import org.springframework.expression.Expression;
+import org.springframework.expression.ExpressionParser;
+import org.springframework.expression.spel.standard.SpelExpressionParser;
+import org.springframework.expression.spel.support.StandardEvaluationContext;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -20,6 +26,7 @@ import java.util.Map;
 public class ExpressionRuleExecutor implements RuleExecutor {
     
     private static final Logger logger = LoggerFactory.getLogger(ExpressionRuleExecutor.class);
+    private final ExpressionParser parser = new SpelExpressionParser();
     
     @Override
     public RuleResult execute(Rule rule, ValidationContext<?> context) throws RuleExecutionException {
@@ -65,6 +72,38 @@ public class ExpressionRuleExecutor implements RuleExecutor {
     public boolean supports(Rule rule) {
         return rule instanceof ExpressionRule;
     }
+
+    /**
+     * Builds a nested Map from flat Map<String, Object> where keys with dot notation (e.g., "order.currency")
+     * are resolved into nested structures (e.g., context.get("order").get("currency")).
+     */
+    private Map<String, Object> buildNestedContext(Map<String, Object> flatAttributes) {
+        Map<String, Object> nested = new HashMap<>();
+        if (flatAttributes != null) {
+            for (Map.Entry<String, Object> entry : flatAttributes.entrySet()) {
+                String key = entry.getKey();
+                Object value = entry.getValue();
+                setNestedValue(nested, key.split("\\."), value);
+            }
+        }
+        return nested;
+    }
+
+    /**
+     * Recursively sets a value in a nested Map using the path segments.
+     */
+    @SuppressWarnings("unchecked")
+    private void setNestedValue(Map<String, Object> root, String[] path, Object value) {
+        Map<String, Object> current = root;
+        for (int i = 0; i < path.length - 1; i++) {
+            String segment = path[i];
+            if (!current.containsKey(segment)) {
+                current.put(segment, new HashMap<String, Object>());
+            }
+            current = (Map<String, Object>) current.get(segment);
+        }
+        current.put(path[path.length - 1], value);
+    }
     
     /**
      * Evaluates an expression against the validation context.
@@ -77,17 +116,21 @@ public class ExpressionRuleExecutor implements RuleExecutor {
      * @return true if the expression evaluates to true
      */
     private boolean evaluateExpression(String expression, ValidationContext<?> context) {
-        // Simple placeholder implementation
-        // TODO: Integrate with Spring Expression Language (SpEL) or similar
-        // For now, this is a basic placeholder that would need proper expression evaluation
         
-        // Example: Simple property access like "payload.age >= 18"
-        // This would need a proper expression parser
+        StandardEvaluationContext evalContext = new StandardEvaluationContext();
         
-        throw new UnsupportedOperationException(
-                "Expression evaluation not yet implemented. " +
-                "Please integrate with SpEL or another expression evaluation library."
-        );
+        // Enable dot notation access for Maps
+        evalContext.addPropertyAccessor(new MapAccessor());
+        
+        // Set the payload as a root object/variable named 'payload'
+        evalContext.setVariable("payload", context.payload());
+        
+        // Build and set nested context for hierarchical attributes
+        Map<String, Object> nestedContext = buildNestedContext(context.contextAttributes());
+        evalContext.setVariable("context", nestedContext);
+        
+        Expression expr = parser.parseExpression(expression);
+        return (Boolean)expr.getValue(evalContext);
     }
     
     /**
