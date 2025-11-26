@@ -25,7 +25,22 @@ spring:
           max-idle: 8
           min-idle: 0
 
+# Validation Engine Configuration
+quickysoft:
+  validation:
+    cache:
+      enabled: true
+      ttl-hours: 24
+    expression:
+      evaluator-type: SPEL  # Options: SPEL (default), MVEL, JEXL
+    script:
+      local-base-path: /scripts
+      s3:
+        enabled: false
+        # bucket: my-scripts-bucket
+        # region: us-east-1
+        # key-prefix: scripts/
+
 logging:
   level:
     com.quickysoft.validation.persistence: DEBUG
-

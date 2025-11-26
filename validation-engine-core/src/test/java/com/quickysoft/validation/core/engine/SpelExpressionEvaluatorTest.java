@@ -1,5 +1,9 @@
 package com.quickysoft.validation.core.engine;
 
+import com.quickysoft.validation.core.engine.expression.ExpressionEvaluatorType;
+import com.quickysoft.validation.core.engine.expression.ExpressionRuleExecutor;
+import com.quickysoft.validation.core.engine.expression.impl.ExpressionEvaluatorFactory;
+import com.quickysoft.validation.core.engine.expression.impl.SpELExpressionEvaluator;
 import com.quickysoft.validation.core.model.ExpressionRule;
 import com.quickysoft.validation.core.model.RuleResult;
 import com.quickysoft.validation.core.model.ValidationContext;
@@ -27,7 +31,7 @@ class SpelExpressionEvaluatorTest {
         // Setup ValidationContext with hierarchical attributes
         ValidationContext ctx = new ValidationContext("Oil transaction in barrels", attrs);
 
-        ExpressionRuleExecutor evaluator = new ExpressionRuleExecutor();
+        ExpressionRuleExecutor ruleExecutor = new ExpressionRuleExecutor(ExpressionEvaluatorFactory.getInstance().getEvaluator(ExpressionEvaluatorType.SPEL));
         ExpressionRule rule1 = ExpressionRule
                 .builder()
                 .tenantId("T1")
@@ -38,7 +42,7 @@ class SpelExpressionEvaluatorTest {
                 .build();
 
         // Test 1: AND with OR on hierarchical attributes
-        Object result = evaluator.execute(
+        Object result = ruleExecutor.execute(
                 rule1,
                 ctx
         );
@@ -56,7 +60,7 @@ class SpelExpressionEvaluatorTest {
         // Test 2: OR with negation on hierarchical attributes (corrected expectation: true)
         // Payload does not contain 'error' (false), but not (currency == 'EUR' and uom == 'KG') = not (false and false) = true
         // Overall: false OR true = true
-        Object result2 = evaluator.execute(
+        Object result2 = ruleExecutor.execute(
                 rule2,
                 ctx
         );

@@ -1,5 +1,9 @@
 package com.quickysoft.validation.core.engine;
 
+import com.quickysoft.validation.core.engine.expression.ExpressionEvaluatorType;
+import com.quickysoft.validation.core.engine.expression.ExpressionRuleExecutor;
+import com.quickysoft.validation.core.engine.expression.impl.ExpressionEvaluatorFactory;
+import com.quickysoft.validation.core.engine.expression.impl.SpELExpressionEvaluator;
 import com.quickysoft.validation.core.provider.RuleSetProvider;
 
 import java.util.ArrayList;
@@ -35,7 +39,7 @@ public class ValidationEngineFactory {
         
         // Create rule executors
         List<RuleExecutor> executors = new ArrayList<>();
-        executors.add(new ExpressionRuleExecutor());
+        executors.add(new ExpressionRuleExecutor(ExpressionEvaluatorFactory.getInstance().getEvaluator(ExpressionEvaluatorType.SPEL)));
         executors.add(new GroovyScriptRuleExecutor(scriptLoader, scriptCache));
         
         // Create result calculator

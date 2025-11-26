@@ -1,113 +1,66 @@
-# Validation Engine Layer
+# Expression Evaluator Strategy
 
-This package contains the engine layer for evaluating rules and rule sets.
+The Validation Engine supports multiple expression evaluation engines that can be switched via Spring Boot configuration.
 
-## Components
+## Strategy Pattern Implementation
 
-### Core Interfaces
+The `ExpressionRuleExecutor` uses the **Strategy Pattern** with the `ExpressionEvaluator` interface to support multiple expression engines:
 
-- **`ValidationEngine`** - Main API for evaluating rule sets
-- **`RuleExecutor`** - Executes individual rules (expression or Groovy script)
-- **`ScriptLoader`** - Loads script content from various sources
-- **`RuleSetProvider`** - Provides rule sets (with caching)
+- **SpEL** (Spring Expression Language) - Default
+- **MVEL** (MVFLEX Expression Language)
+- **JEXL** (Java Expression Language)
 
-### Implementations
+## Configuration
 
-- **`DefaultValidationEngine`** - Main engine implementation
-- **`ExpressionRuleExecutor`** - Executes expression-based rules
-- **`GroovyScriptRuleExecutor`** - Executes Groovy script-based rules
-- **`GroovyScriptCache`** - Tenant-aware cache for compiled Groovy scripts
-- **`CompositeScriptLoader`** - Delegates to multiple script loaders
-- **`FileSystemScriptLoader`** - Loads scripts from local file system
-- **`S3ScriptLoader`** - Loads scripts from S3 (placeholder for AWS SDK integration)
-- **`RuleSetResultCalculator`** - Calculates overall rule set status
+Configure the evaluator type in `application.yml`:
 
-### Factory
-
-- **`ValidationEngineFactory`** - Factory for creating configured ValidationEngine instances
-
-## Usage
-
-### Basic Usage
-
-```java
-// Create a rule set provider (implementation from persistence layer)
-RuleSetProvider provider = new JpaRuleSetProvider(...);
-
-// Create validation engine
-ValidationEngine engine = ValidationEngineFactory.createDefault(provider);
-
-// Evaluate a rule set
-Customer customer = new Customer("John", 25);
-RuleSetResult result = engine.evaluate(
-    "tenant-123",
-    "customer-onboarding",
-    "1.0",
-    customer,
-    Map.of("country", "DE", "channel", "WEB")
-);
-
-// Check result
-if (result.isPassed()) {
-    System.out.println("Validation passed!");
-} else {
-    System.out.println("Validation failed: " + result.overallStatus());
-    result.ruleResults().stream()
-        .filter(RuleResult::isFailure)
-        .forEach(r -> System.out.println("  - " + r.ruleCode() + ": " + r.message()));
-}
+```yaml
+quickysoft:
+  validation:
+    expression:
+      evaluator-type: SPEL  # Options: SPEL, MVEL, JEXL
 ```
 
-### Custom Configuration
+## How It Works
 
-```java
-// Create custom script loader
-CompositeScriptLoader scriptLoader = new CompositeScriptLoader();
-scriptLoader.addLoader(new FileSystemScriptLoader());
-scriptLoader.addLoader(new S3ScriptLoader());
-// Add custom loaders...
+1. **Individual Evaluator Beans**: Each evaluator (SpEL, MVEL, JEXL) is created as a separate bean conditionally based on class availability
+2. **Primary Evaluator Bean**: A `@Primary` bean selects the appropriate evaluator from available evaluators based on configuration
+3. **ExpressionRuleExecutor**: Injects the primary `ExpressionEvaluator` bean and uses it for evaluation
 
-// Create custom script cache
-GroovyScriptCache scriptCache = new GroovyScriptCache();
+## Switching Evaluators
 
-// Create custom executors
-List<RuleExecutor> executors = new ArrayList<>();
-executors.add(new ExpressionRuleExecutor());
-executors.add(new GroovyScriptRuleExecutor(scriptLoader, scriptCache));
+To switch from SpEL to MVEL:
 
-// Create engine
-ValidationEngine engine = ValidationEngineFactory.create(
-    ruleSetProvider,
-    executors,
-    scriptLoader,
-    scriptCache
-);
+```yaml
+quickysoft:
+  validation:
+    expression:
+      evaluator-type: MVEL
 ```
 
-## Groovy Script Execution
+To switch to JEXL:
 
-Groovy scripts receive the following variables:
-
-- **`payload`** - The validation payload object
-- **`context`** - Map of context attributes
-- **`tenantId`** - The tenant identifier
-
-Scripts should return a boolean:
-
-```groovy
-// Example Groovy script
-return payload.age >= 18 && context.get("country") == "DE"
+```yaml
+quickysoft:
+  validation:
+    expression:
+      evaluator-type: JEXL
 ```
 
-## Expression Evaluation
+## Custom Evaluator
 
-Expression rules use boolean expressions. Currently, expression evaluation is a placeholder.
-For production use, integrate with Spring Expression Language (SpEL) or another expression library.
+To provide a custom evaluator:
 
-## Tenant-Aware Caching
+1. Implement `ExpressionEvaluator` interface
+2. Create a `@Bean` of type `ExpressionEvaluator`
+3. The auto-configuration will use your custom bean
 
-- **Rule Sets**: Cached via `RuleSetProvider` (typically Redis-backed)
-- **Groovy Scripts**: Cached in `GroovyScriptCache` (in-memory, per-tenant)
+## Expression Syntax
 
-Script cache keys are tenant-aware: `{tenantId}:{scriptLocation}`
+Each evaluator has slightly different syntax:
 
+- **SpEL**: `context['key']` for context variables
+- **MVEL**: Direct variable access (context variables are available as direct variables)
+- **JEXL**: Direct variable access (context variables are available as direct variables)
+
+See `docs/expression-evaluators.md` for detailed syntax differences and examples.

@@ -1,5 +1,6 @@
 package com.quickysoft.validation.starter;
 
+import com.quickysoft.validation.core.engine.expression.ExpressionEvaluatorType;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -18,6 +19,11 @@ public class ValidationEngineProperties {
      */
     private Script script = new Script();
     
+    /**
+     * Expression evaluation configuration.
+     */
+    private Expression expression = new Expression();
+    
     public Cache getCache() {
         return cache;
     }
@@ -32,6 +38,14 @@ public class ValidationEngineProperties {
     
     public void setScript(Script script) {
         this.script = script;
+    }
+    
+    public Expression getExpression() {
+        return expression;
+    }
+    
+    public void setExpression(Expression expression) {
+        this.expression = expression;
     }
     
     /**
@@ -150,6 +164,25 @@ public class ValidationEngineProperties {
         
         public void setKeyPrefix(String keyPrefix) {
             this.keyPrefix = keyPrefix;
+        }
+    }
+    
+    /**
+     * Expression evaluation configuration.
+     */
+    public static class Expression {
+        /**
+         * Type of expression evaluator to use (SPEL, MVEL, JEXL).
+         * Default: SPEL
+         */
+        private ExpressionEvaluatorType evaluatorType = ExpressionEvaluatorType.SPEL;
+        
+        public ExpressionEvaluatorType getEvaluatorType() {
+            return evaluatorType;
+        }
+        
+        public void setEvaluatorType(ExpressionEvaluatorType evaluatorType) {
+            this.evaluatorType = evaluatorType != null ? evaluatorType : ExpressionEvaluatorType.SPEL;
         }
     }
 }

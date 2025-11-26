@@ -2,6 +2,13 @@ package com.quickysoft.validation.starter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.quickysoft.validation.core.engine.*;
+import com.quickysoft.validation.core.engine.expression.ExpressionEvaluator;
+import com.quickysoft.validation.core.engine.expression.ExpressionEvaluatorType;
+import com.quickysoft.validation.core.engine.expression.ExpressionRuleExecutor;
+import com.quickysoft.validation.core.engine.expression.impl.ExpressionEvaluatorFactory;
+import com.quickysoft.validation.core.engine.expression.impl.JEXLExpressionEvaluator;
+import com.quickysoft.validation.core.engine.expression.impl.MVELExpressionEvaluator;
+import com.quickysoft.validation.core.engine.expression.impl.SpELExpressionEvaluator;
 import com.quickysoft.validation.core.provider.RuleSetProvider;
 import com.quickysoft.validation.persistence.cache.NoOpRuleSetCache;
 import com.quickysoft.validation.persistence.cache.RuleSetCache;
@@ -17,7 +24,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
@@ -144,12 +151,89 @@ public class ValidationEngineAutoConfiguration {
     }
     
     /**
+     * SpEL expression evaluator bean (created if SpEL classes are available).
+     */
+    @Bean(name = "spelExpressionEvaluator")
+    @ConditionalOnMissingBean(name = "spelExpressionEvaluator")
+    @ConditionalOnClass(name = "org.springframework.expression.ExpressionParser")
+    public ExpressionEvaluator spelExpressionEvaluator() {
+        logger.debug("Creating SpEL expression evaluator bean");
+        return ExpressionEvaluatorFactory.getInstance().getEvaluator(ExpressionEvaluatorType.SPEL);
+    }
+    
+    /**
+     * MVEL expression evaluator bean (created if MVEL classes are available).
+     */
+    @Bean(name = "mvelExpressionEvaluator")
+    @ConditionalOnMissingBean(name = "mvelExpressionEvaluator")
+    @ConditionalOnClass(name = "org.mvel2.MVEL")
+    public ExpressionEvaluator mvelExpressionEvaluator() {
+        logger.debug("Creating MVEL expression evaluator bean");
+        return ExpressionEvaluatorFactory.getInstance().getEvaluator(ExpressionEvaluatorType.MVEL);
+    }
+    
+    /**
+     * JEXL expression evaluator bean (created if JEXL classes are available).
+     */
+    @Bean(name = "jexlExpressionEvaluator")
+    @ConditionalOnMissingBean(name = "jexlExpressionEvaluator")
+    @ConditionalOnClass(name = "org.apache.commons.jexl3.JexlEngine")
+    public ExpressionEvaluator jexlExpressionEvaluator() {
+        logger.debug("Creating JEXL expression evaluator bean");
+        return ExpressionEvaluatorFactory.getInstance().getEvaluator(ExpressionEvaluatorType.JEXL);
+    }
+    
+    /**
+     * Primary expression evaluator - selected based on configuration.
+     * 
+     * This bean selects the appropriate evaluator from available evaluators based on
+     * the configured type in ValidationEngineProperties.
+     */
+    @Bean
+    @Primary
+    @ConditionalOnMissingBean(name = "expressionEvaluator")
+    public ExpressionEvaluator expressionEvaluator(
+            ValidationEngineProperties properties,
+            List<ExpressionEvaluator> availableEvaluators
+    ) {
+        ExpressionEvaluatorType configuredType = properties.getExpression().getEvaluatorType();
+        String configuredTypeName = configuredType.name();
+        
+        logger.info("Selecting expression evaluator based on configuration: {}", configuredTypeName);
+        logger.debug("Available evaluators: {}", availableEvaluators.stream()
+                .map(ExpressionEvaluator::getName).toList());
+        
+        // Find evaluator matching the configured type
+        ExpressionEvaluator selected = availableEvaluators.stream()
+                .filter(evaluator -> evaluator.getName().equalsIgnoreCase(configuredTypeName))
+                .findFirst()
+                .orElseGet(() -> {
+                    logger.warn("Requested expression evaluator '{}' not found in available evaluators: {}. " +
+                            "Falling back to first available evaluator.", 
+                            configuredTypeName, 
+                            availableEvaluators.stream().map(ExpressionEvaluator::getName).toList());
+                    
+                    if (availableEvaluators.isEmpty()) {
+                        logger.warn("No expression evaluators available, creating default SpEL evaluator");
+                        return ExpressionEvaluatorFactory.getInstance().getEvaluator(ExpressionEvaluatorType.SPEL);
+                    }
+                    
+                    ExpressionEvaluator fallback = availableEvaluators.get(0);
+                    logger.info("Using fallback evaluator: {}", fallback.getName());
+                    return fallback;
+                });
+        
+        logger.info("Selected expression evaluator: {} for type: {}", selected.getName(), configuredTypeName);
+        return selected;
+    }
+    
+    /**
      * Expression rule executor.
      */
     @Bean
     @ConditionalOnMissingBean
-    public ExpressionRuleExecutor expressionRuleExecutor() {
-        return new ExpressionRuleExecutor();
+    public ExpressionRuleExecutor expressionRuleExecutor(ExpressionEvaluator expressionEvaluator) {
+        return new ExpressionRuleExecutor(expressionEvaluator);
     }
     
     /**
@@ -188,7 +272,8 @@ public class ValidationEngineAutoConfiguration {
         executors.add(expressionRuleExecutor);
         executors.add(groovyScriptRuleExecutor);
         
-        logger.info("Auto-configured ValidationEngine with {} rule executors", executors.size());
+        logger.info("Auto-configured ValidationEngine with {} rule executors (expression evaluator: {})", 
+                executors.size(), expressionRuleExecutor.getClass().getSimpleName());
         return new DefaultValidationEngine(ruleSetProvider, executors, resultCalculator);
     }
 }
