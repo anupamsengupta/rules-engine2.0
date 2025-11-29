@@ -40,7 +40,7 @@ public class MVELExpressionEvaluator extends AbstractExpressionEvaluator {
             }
 
             // Compile and evaluate the expression
-            ExecutableAccessor compiled = (ExecutableAccessor) MVEL.compileExpression(expression);
+            Object compiled = MVEL.compileExpression(expression);
 
             // Evaluate expression
             Object result = MVEL.executeExpression(compiled, variables);

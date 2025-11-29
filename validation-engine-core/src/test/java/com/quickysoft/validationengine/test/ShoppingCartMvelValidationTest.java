@@ -1,5 +1,8 @@
 package com.quickysoft.validationengine.test;
 
+import com.quickysoft.validation.core.engine.expression.ExpressionEvaluatorType;
+import com.quickysoft.validation.core.engine.expression.impl.ExpressionEvaluatorFactory;
+import com.quickysoft.validation.core.model.ValidationContext;
 import com.quickysoft.validationengine.model.*;
 import org.junit.jupiter.api.Test;
 import org.mvel2.MVEL;
@@ -19,28 +22,24 @@ class ShoppingCartMvelValidationTest {
      * MVEL expression that validates cart total equals sum of line item totals.
      * Each line item total is calculated as: quantity * product.price
      */
-    /*private static final String EXPRESSION =
-            "shoppingCart.cartTotalAmount.compareTo(" +
-                    "  shoppingCart.lineItems.{ this.product.price.multiply(new java.math.BigDecimal(this.quantity)) }.sum()" +
-                    ") == 0";*/
     private static final String CART_TOTAL_EXPRESSION =
             "sum = new java.math.BigDecimal(\"0\"); " +
-                    "foreach (li : shoppingCart.lineItems) { " +
+                    "foreach (li : context.shoppingCart.lineItems) { " +
                     "  sum = sum.add(li.product.price.multiply(new java.math.BigDecimal(li.quantity))); " +
                     "} " +
-                    "shoppingCart.cartTotalAmount.compareTo(sum) == 0";
+                    "context.shoppingCart.cartTotalAmount.compareTo(sum) == 0";
     
     /**
      * MVEL expression that validates cart total does not exceed user's limit.
      * Returns true if cartTotalAmount <= user.limit
      */
     private static final String USER_LIMIT_EXPRESSION =
-            "shoppingCart.cartTotalAmount.compareTo(shoppingCart.user.limit) <= 0";
+            "context.shoppingCart.cartTotalAmount.compareTo(context.shoppingCart.user.limit) <= 0";
 
 
 
     @Test
-    void testCartTotalMatchesLineItems_positive() {
+    void testCartTotalMatchesLineItems_positive() throws Exception {
         // Build shopping cart with multiple line items
         ShoppingCart cart = createShoppingCart();
         
@@ -60,7 +59,11 @@ class ShoppingCartMvelValidationTest {
         variables.put("shoppingCart", cart);
         
         // Evaluate MVEL expression
-        Object result = MVEL.eval(CART_TOTAL_EXPRESSION, variables);
+        ValidationContext ctx = new ValidationContext("TEST Total Expression", variables);
+        Object result = ExpressionEvaluatorFactory
+                .getInstance()
+                .getEvaluator(ExpressionEvaluatorType.MVEL)
+                .evaluate(CART_TOTAL_EXPRESSION, ctx);
         
         // Assert true - cart total matches line items sum
         assertTrue(result instanceof Boolean && (Boolean) result,
@@ -68,7 +71,7 @@ class ShoppingCartMvelValidationTest {
     }
 
     @Test
-    void testCartTotalMatchesLineItems_negative() {
+    void testCartTotalMatchesLineItems_negative() throws Exception {
         // Build shopping cart with multiple line items
         ShoppingCart cart = createShoppingCart();
         
@@ -88,7 +91,11 @@ class ShoppingCartMvelValidationTest {
         variables.put("shoppingCart", cart);
         
         // Evaluate MVEL expression
-        Object result = MVEL.eval(CART_TOTAL_EXPRESSION, variables);
+        ValidationContext ctx = new ValidationContext("TEST Total Expression", variables);
+        Object result = ExpressionEvaluatorFactory
+                .getInstance()
+                .getEvaluator(ExpressionEvaluatorType.MVEL)
+                .evaluate(CART_TOTAL_EXPRESSION, ctx);
         
         // Assert false - cart total does not match line items sum
         assertFalse(result instanceof Boolean && (Boolean) result,
@@ -96,7 +103,7 @@ class ShoppingCartMvelValidationTest {
     }
 
     @Test
-    void testCartTotalWithinUserLimit_positive() {
+    void testCartTotalWithinUserLimit_positive() throws Exception {
         // Build shopping cart with user limit of 5000.00
         ShoppingCart cart = createShoppingCart();
         
@@ -109,7 +116,11 @@ class ShoppingCartMvelValidationTest {
         variables.put("shoppingCart", cart);
         
         // Evaluate MVEL expression
-        Object result = MVEL.eval(USER_LIMIT_EXPRESSION, variables);
+        ValidationContext ctx = new ValidationContext("TEST limit Expression", variables);
+        Object result = ExpressionEvaluatorFactory
+                .getInstance()
+                .getEvaluator(ExpressionEvaluatorType.MVEL)
+                .evaluate(USER_LIMIT_EXPRESSION, ctx);
         
         // Assert true - cart total is within user limit
         assertTrue(result instanceof Boolean && (Boolean) result,
@@ -117,7 +128,7 @@ class ShoppingCartMvelValidationTest {
     }
 
     @Test
-    void testCartTotalWithinUserLimit_boundary() {
+    void testCartTotalWithinUserLimit_boundary() throws Exception {
         // Build shopping cart with user limit of 5000.00
         ShoppingCart cart = createShoppingCart();
         
@@ -130,7 +141,11 @@ class ShoppingCartMvelValidationTest {
         variables.put("shoppingCart", cart);
         
         // Evaluate MVEL expression
-        Object result = MVEL.eval(USER_LIMIT_EXPRESSION, variables);
+        ValidationContext ctx = new ValidationContext("TEST limit Expression", variables);
+        Object result = ExpressionEvaluatorFactory
+                .getInstance()
+                .getEvaluator(ExpressionEvaluatorType.MVEL)
+                .evaluate(USER_LIMIT_EXPRESSION, ctx);
         
         // Assert true - cart total equals user limit (should pass with <=)
         assertTrue(result instanceof Boolean && (Boolean) result,
@@ -138,7 +153,7 @@ class ShoppingCartMvelValidationTest {
     }
 
     @Test
-    void testCartTotalExceedsUserLimit_negative() {
+    void testCartTotalExceedsUserLimit_negative() throws Exception {
         // Build shopping cart with user limit of 5000.00
         ShoppingCart cart = createShoppingCart();
         
@@ -151,7 +166,11 @@ class ShoppingCartMvelValidationTest {
         variables.put("shoppingCart", cart);
         
         // Evaluate MVEL expression
-        Object result = MVEL.eval(USER_LIMIT_EXPRESSION, variables);
+        ValidationContext ctx = new ValidationContext("TEST limit Expression", variables);
+        Object result = ExpressionEvaluatorFactory
+                .getInstance()
+                .getEvaluator(ExpressionEvaluatorType.MVEL)
+                .evaluate(USER_LIMIT_EXPRESSION, ctx);
         
         // Assert false - cart total exceeds user limit
         assertFalse(result instanceof Boolean && (Boolean) result,
