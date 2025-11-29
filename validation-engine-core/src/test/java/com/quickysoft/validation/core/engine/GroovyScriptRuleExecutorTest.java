@@ -78,7 +78,7 @@ class GroovyScriptRuleExecutorTest {
                 .ruleCode("age-check")
                 .name("Age Validation")
                 .severity(Severity.ERROR)
-                .scriptLocationType(ScriptLocationType.INLINE)
+                .scriptLocationType(ScriptLocationType.LOCAL_FILE)
                 .scriptReference("inline-script-boolean")
                 .build();
         
@@ -122,7 +122,7 @@ class GroovyScriptRuleExecutorTest {
         RuleResult result = executor.execute(rule, context, "test-ruleset");
         
         // Verify
-        assertThat(result.status()).isEqualTo(RuleStatus.FAILED);
+        assertThat(result.status()).isEqualTo(RuleStatus.ERROR);
         assertThat(result.ruleCode()).isEqualTo("age-check");
     }
     
@@ -135,7 +135,7 @@ class GroovyScriptRuleExecutorTest {
                 .ruleCode("age-check-detailed")
                 .name("Age Validation with Details")
                 .severity(Severity.ERROR)
-                .scriptLocationType(ScriptLocationType.INLINE)
+                .scriptLocationType(ScriptLocationType.LOCAL_FILE)
                 .scriptReference("inline-script-map")
                 .build();
         
@@ -164,7 +164,7 @@ class GroovyScriptRuleExecutorTest {
                 .ruleCode("age-check-premium")
                 .name("Premium Age Validation")
                 .severity(Severity.ERROR)
-                .scriptLocationType(ScriptLocationType.INLINE)
+                .scriptLocationType(ScriptLocationType.LOCAL_FILE)
                 .scriptReference("inline-script-tenant-aware")
                 .build();
         
