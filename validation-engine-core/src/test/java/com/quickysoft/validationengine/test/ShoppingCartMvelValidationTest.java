@@ -23,12 +23,19 @@ class ShoppingCartMvelValidationTest {
             "shoppingCart.cartTotalAmount.compareTo(" +
                     "  shoppingCart.lineItems.{ this.product.price.multiply(new java.math.BigDecimal(this.quantity)) }.sum()" +
                     ") == 0";*/
-    String EXPRESSION =
+    private static final String CART_TOTAL_EXPRESSION =
             "sum = new java.math.BigDecimal(\"0\"); " +
                     "foreach (li : shoppingCart.lineItems) { " +
                     "  sum = sum.add(li.product.price.multiply(new java.math.BigDecimal(li.quantity))); " +
                     "} " +
                     "shoppingCart.cartTotalAmount.compareTo(sum) == 0";
+    
+    /**
+     * MVEL expression that validates cart total does not exceed user's limit.
+     * Returns true if cartTotalAmount <= user.limit
+     */
+    private static final String USER_LIMIT_EXPRESSION =
+            "shoppingCart.cartTotalAmount.compareTo(shoppingCart.user.limit) <= 0";
 
 
 
@@ -53,7 +60,7 @@ class ShoppingCartMvelValidationTest {
         variables.put("shoppingCart", cart);
         
         // Evaluate MVEL expression
-        Object result = MVEL.eval(EXPRESSION, variables);
+        Object result = MVEL.eval(CART_TOTAL_EXPRESSION, variables);
         
         // Assert true - cart total matches line items sum
         assertTrue(result instanceof Boolean && (Boolean) result,
@@ -81,11 +88,74 @@ class ShoppingCartMvelValidationTest {
         variables.put("shoppingCart", cart);
         
         // Evaluate MVEL expression
-        Object result = MVEL.eval(EXPRESSION, variables);
+        Object result = MVEL.eval(CART_TOTAL_EXPRESSION, variables);
         
         // Assert false - cart total does not match line items sum
         assertFalse(result instanceof Boolean && (Boolean) result,
                 "Cart total should not match the sum of line item totals when incorrect");
+    }
+
+    @Test
+    void testCartTotalWithinUserLimit_positive() {
+        // Build shopping cart with user limit of 5000.00
+        ShoppingCart cart = createShoppingCart();
+        
+        // Set cart total to a value within user limit (e.g., 2000.00)
+        BigDecimal cartTotal = new BigDecimal("2000.00");
+        cart.setCartTotalAmount(cartTotal);
+        
+        // Prepare MVEL context
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("shoppingCart", cart);
+        
+        // Evaluate MVEL expression
+        Object result = MVEL.eval(USER_LIMIT_EXPRESSION, variables);
+        
+        // Assert true - cart total is within user limit
+        assertTrue(result instanceof Boolean && (Boolean) result,
+                "Cart total should be within user limit");
+    }
+
+    @Test
+    void testCartTotalWithinUserLimit_boundary() {
+        // Build shopping cart with user limit of 5000.00
+        ShoppingCart cart = createShoppingCart();
+        
+        // Set cart total to exactly the user limit (boundary case)
+        BigDecimal cartTotal = cart.getUser().getLimit();
+        cart.setCartTotalAmount(cartTotal);
+        
+        // Prepare MVEL context
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("shoppingCart", cart);
+        
+        // Evaluate MVEL expression
+        Object result = MVEL.eval(USER_LIMIT_EXPRESSION, variables);
+        
+        // Assert true - cart total equals user limit (should pass with <=)
+        assertTrue(result instanceof Boolean && (Boolean) result,
+                "Cart total equal to user limit should be valid");
+    }
+
+    @Test
+    void testCartTotalExceedsUserLimit_negative() {
+        // Build shopping cart with user limit of 5000.00
+        ShoppingCart cart = createShoppingCart();
+        
+        // Set cart total to a value exceeding user limit (e.g., 6000.00)
+        BigDecimal cartTotal = new BigDecimal("6000.00");
+        cart.setCartTotalAmount(cartTotal);
+        
+        // Prepare MVEL context
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("shoppingCart", cart);
+        
+        // Evaluate MVEL expression
+        Object result = MVEL.eval(USER_LIMIT_EXPRESSION, variables);
+        
+        // Assert false - cart total exceeds user limit
+        assertFalse(result instanceof Boolean && (Boolean) result,
+                "Cart total should not exceed user limit");
     }
 
     /**

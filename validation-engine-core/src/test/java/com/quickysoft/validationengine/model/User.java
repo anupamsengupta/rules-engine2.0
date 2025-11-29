@@ -3,22 +3,6 @@ package com.quickysoft.validationengine.model;
 import java.math.BigDecimal;
 import java.util.Objects;
 
-/**
- * Represents a user in the system.
- * 
- * Maven dependency for MVEL and JUnit 5:
- * <dependency>
- *     <groupId>org.mvel</groupId>
- *     <artifactId>mvel2</artifactId>
- *     <version>2.4.14.Final</version>
- * </dependency>
- * <dependency>
- *     <groupId>org.junit.jupiter</groupId>
- *     <artifactId>junit-jupiter</artifactId>
- *     <version>5.10.0</version>
- *     <scope>test</scope>
- * </dependency>
- */
 public class User {
     private String loginCode;
     private String userId;
