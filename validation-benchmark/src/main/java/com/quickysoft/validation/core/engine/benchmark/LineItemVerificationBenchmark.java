@@ -52,10 +52,12 @@ public class LineItemVerificationBenchmark {
             "} " +
             "context.shoppingCart.cartTotalAmount.compareTo(sum) == 0";
     
-    // JEXL expression - using foreach loop
+    // JEXL expression - using script with for loop
+    // Note: JEXL 3.x script syntax for iteration uses 'for (var in collection)'
+    // The last expression in the script is the return value
     private String jexlExpression =
-            "sum = new java.math.BigDecimal(\"0\"); " +
-            "for (li : context.shoppingCart.lineItems) { " +
+            "sum = new java.math.BigDecimal('0'); " +
+            "for (li in context.shoppingCart.lineItems) { " +
             "  sum = sum.add(li.product.price.multiply(new java.math.BigDecimal(li.quantity))); " +
             "} " +
             "context.shoppingCart.cartTotalAmount.compareTo(sum) == 0";

@@ -6,6 +6,7 @@ import com.quickysoft.validation.core.model.ValidationContext;
 import org.apache.commons.jexl3.JexlContext;
 import org.apache.commons.jexl3.JexlEngine;
 import org.apache.commons.jexl3.JexlExpression;
+import org.apache.commons.jexl3.JexlScript;
 import org.apache.commons.jexl3.MapContext;
 import org.apache.commons.jexl3.internal.Engine;
 import org.slf4j.Logger;
@@ -51,9 +52,38 @@ public class JEXLExpressionEvaluator extends AbstractExpressionEvaluator {
                 jexlContext.set("tenantId", context.contextAttributes().get("tenantId"));
             }
             
-            // Create and evaluate expression
-            JexlExpression jexlExpression = jexlEngine.createExpression(expression);
-            Object result = jexlExpression.evaluate(jexlContext);
+            // Try to create and evaluate as script first (for multi-statement expressions),
+            // then fall back to expression if it fails
+            Object result;
+            // Check if expression contains multiple statements (semicolons or control structures)
+            // JEXL scripts can have: for loops (with ':' or 'in'), foreach, if statements, semicolons
+            boolean isScript = expression.contains(";") || 
+                              expression.contains("for ") || 
+                              expression.contains("foreach ") || 
+                              expression.contains("if ") ||
+                              expression.contains(" while ");
+            
+            if (isScript) {
+                // Try to create and evaluate as script
+                try {
+                    JexlScript jexlScript = jexlEngine.createScript(expression);
+                    result = jexlScript.execute(jexlContext);
+                } catch (Exception scriptException) {
+                    logger.debug("Failed to create JEXL script, trying as expression: {}", scriptException.getMessage());
+                    // If script creation fails, try as expression (for backward compatibility)
+                    try {
+                        JexlExpression jexlExpression = jexlEngine.createExpression(expression);
+                        result = jexlExpression.evaluate(jexlContext);
+                    } catch (Exception exprException) {
+                        // Re-throw the original script exception as it's more informative
+                        throw scriptException;
+                    }
+                }
+            } else {
+                // Create and evaluate as expression
+                JexlExpression jexlExpression = jexlEngine.createExpression(expression);
+                result = jexlExpression.evaluate(jexlContext);
+            }
             
             // Convert to boolean
             if (result instanceof Boolean bool) {
